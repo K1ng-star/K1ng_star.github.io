@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Snapchat</title>
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ff00ff, #ff66b2);
+            color: white;
+        }
+        video, canvas {
+            width: 80%;
+            max-width: 400px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .chat-box, .friends-box, .admin-box {
+            margin-top: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        #messages {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 10px;
+            border-radius: 10px;
+            min-height: 100px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.3);
+        }
+        input, button {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+        .admin-box {
+            background: #333;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: 300px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .close-btn {
+            background: red;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            float: right;
+            border-radius: 5px;
+        }
+        .open-btn {
+            background: green;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body onload="checkAutoLogin()">
+    <div id="signup">
+        <h1>Inscription</h1>
+        <input type="email" id="email" placeholder="Adresse email"><br>
+        <input type="password" id="password" placeholder="Mot de passe"><br>
+        <input type="text" id="pseudo" placeholder="Pseudo"><br>
+        <button onclick="register()">S'inscrire</button>
+        <p>Déjà un compte ? <button onclick="showLogin()">Se connecter</button></p>
+    </div>
+    
+    <div id="login" class="hidden">
+        <h1>Connexion</h1>
+        <input type="email" id="loginEmail" placeholder="Adresse email"><br>
+        <input type="password" id="loginPassword" placeholder="Mot de passe"><br>
+        <button onclick="login()">Se connecter</button>
+    </div>
+    
+    <div id="adminPanel" class="hidden admin-box">
+        <button class="close-btn" onclick="closeAdminPanel()">X</button>
+        <h1>Admin Panel</h1>
+        <button onclick="showUserData()">Voir les utilisateurs</button>
+        <div id="userList"></div>
+    </div>
+
+    <div id="app" class="hidden">
+        <h1>Mini Snapchat</h1>
+        <video id="video" autoplay></video>
+        <button onclick="takePicture()">📸 Prendre une photo</button>
+        <canvas id="canvas"></canvas>
+
+        <div class="chat-box">
+            <h2>Chat</h2>
+            <div id="messages"></div>
+            <input type="text" id="messageInput" placeholder="Écrire un message...">
+            <button onclick="sendMessage()">Envoyer</button>
+        </div>
+
+        <div class="friends-box">
+            <h2>Amis</h2>
+            <input type="text" id="friendInput" placeholder="Ajouter un ami..."><br>
+            <button onclick="addFriend()">Ajouter</button>
+            <ul id="friendList"></ul>
+        </div>
+
+        <!-- Option pour l'admin de rouvrir le panneau admin -->
+        <button id="openAdminBtn" class="open-btn hidden" onclick="openAdminPanel()">Réouvrir le panneau Admin</button>
+    </div>
+    
+    <script>
+        const adminEmail = "eliottbedel12@gmail.com"; // Mets ton email ici
+        let users = JSON.parse(localStorage.getItem('users')) || {};
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+
+        function checkAutoLogin() {
+            if (currentUser) {
+                loginUser(currentUser.email);
+            }
+        }
+
+        function showLogin() {
+            document.getElementById('signup').classList.add('hidden');
+            document.getElementById('login').classList.remove('hidden');
+        }
+
+        function closeAdminPanel() {
+            document.getElementById('adminPanel').classList.add('hidden');
+            document.getElementById('openAdminBtn').classList.remove('hidden'); // Montrer le bouton pour rouvrir
+        }
+
+        function openAdminPanel() {
+            document.getElementById('adminPanel').classList.remove('hidden');
+            document.getElementById('openAdminBtn').classList.add('hidden'); // Cacher le bouton pour rouvrir
+        }
+
+        function register() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const pseudo = document.getElementById('pseudo').value.trim();
+            
+            if (email && password && pseudo) {
+                if (users[email]) {
+                    alert('Cet email est déjà utilisé.');
+                    return;
+                }
+                users[email] = { password, pseudo, color: getRandomColor(), friends: [] };
+                localStorage.setItem('users', JSON.stringify(users));
+                loginUser(email);
+            } else {
+                alert('Veuillez remplir tous les champs !');
+            }
+        }
+
+        function login() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            
+            if (users[email] && users[email].password === password) {
+                loginUser(email);
+            } else {
+                alert('Email ou mot de passe incorrect !');
+            }
+        }
+
+        function loginUser(email) {
+            currentUser = users[email];
+            localStorage.setItem('currentUser', JSON.stringify({ email }));
+            document.getElementById('signup').classList.add('hidden');
+            document.getElementById('login').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            
+            if (email === adminEmail) {
+                document.getElementById('adminPanel').classList.remove('hidden');
+                document.getElementById('openAdminBtn').classList.add('hidden'); // Masquer le bouton pour réouvrir
+            } else {
+                document.getElementById('openAdminBtn').classList.remove('hidden'); // Montrer le bouton pour réouvrir pour les autres utilisateurs
+            }
+        }
+
+        function showUserData() {
+            let userList = document.getElementById('userList');
+            userList.innerHTML = "<h2>Utilisateurs enregistrés</h2>";
+            for (let email in users) {
+                userList.innerHTML += `<p>Email: ${email} | Pseudo: ${users[email].pseudo} | Mot de passe: ${users[email].password}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
